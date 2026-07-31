@@ -1,0 +1,87 @@
+# Agentic Loop — MCP Tool Calling
+#
+# Demonstrates the full agentic loop: model calls an MCP tool,
+# Praxis dispatches the call to the MCP server, feeds the result
+# back to the model, and the model produces a final answer.
+#
+# Pipeline (pre-IRR, runs once):
+#   1. openai_responses_format — classify the request
+#   2. openai_responses_validate — validate parameters
+#   3. openai_tool_parse — parse MCP tool definitions
+#   4. openai_response_store — register SQLite store
+#   5. openai_responses_rehydrate — load previous context
+#   6. openai_mcp_tool_resolve — discover tools from MCP servers
+#
+# IRR inference step (loops):
+#   Request:  mcp_dispatch → agentic_loop → responses_proxy
+#             → router → load_balancer
+#   Response: load_balancer → router → responses_proxy
+#             → agentic_loop → mcp_dispatch
+#
+#   agentic_loop detects tool calls in the model response.
+#   mcp_dispatch executes MCP calls and triggers a loop
+#   transition back to inference with the result.
+#
+# Build:
+#   cargo build -p praxis-ai-proxy --release
+
+listeners:
+  - name: ai-gateway
+    address: "127.0.0.1:8080"
+    filter_chains: [agentic-pipeline]
+
+filter_chains:
+  - name: agentic-pipeline
+    filters:
+      - filter: openai_responses_format
+        on_invalid: reject
+        headers:
+          format: x-praxis-ai-format
+          model: x-praxis-ai-model
+          stream: x-praxis-ai-stream
+
+      - filter: openai_responses_validate
+
+      - filter: openai_tool_parse
+
+      - filter: openai_response_store
+        backend: sqlite
+        database_url: "sqlite://responses.db?mode=rwc"
+        responses_table: openai_responses
+        conversations_table: openai_conversations
+
+      - filter: openai_responses_rehydrate
+
+      - filter: openai_mcp_tool_resolve
+        allow_loopback: true
+
+      - filter: iterative_request_router
+        initial_step: inference
+        max_iterations: 11
+        timeout_ms: 120000
+        step_timeout_ms: 120000
+        steps:
+          - name: inference
+            filters:
+              - filter: openai_mcp_dispatch
+                allow_loopback: true
+              - filter: agentic_loop
+                max_infer_iters: 10
+              - filter: openai_responses_proxy
+              - filter: router
+                routes:
+                  - path_prefix: "/"
+                    cluster: "inference-backend"
+              - filter: load_balancer
+                clusters:
+                  - name: "inference-backend"
+                    endpoints:
+                      - "127.0.0.1:8000"
+                    read_timeout_ms: 120000
+            on_result:
+              - filter: openai_mcp_dispatch
+                key: action
+                value: loop
+                next: inference
+              - default: true
+                done: true
