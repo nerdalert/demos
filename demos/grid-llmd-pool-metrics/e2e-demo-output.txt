@@ -1,0 +1,243 @@
+Demo:         grid-llmd-pool-metrics
+Subcommand:   run-grid-llmd-pool-metrics-demo
+Forge config: $DEMOS_REPO/demos/grid-llmd-pool-metrics/forge.yaml
+Demo root:    $DEMOS_REPO/demos/grid-llmd-pool-metrics
+Grid repo:    $GRID_REPO
+
+   Compiling xtask v0.1.2 ($GRID_REPO/xtask)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.07s
+   Compiling xtask v0.1.2 ($GRID_REPO/xtask)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.06s
+     Running `target/debug/xtask env run-grid-llmd-pool-metrics-demo --forge-config $DEMOS_REPO/demos/grid-llmd-pool-metrics/forge.yaml --quick --teardown --keep-on-failure`
+===============================================================================
+Grid llm-d Pool-Metrics Routing Demo
+Mode: quick
+Forge config: $DEMOS_REPO/demos/grid-llmd-pool-metrics/forge.yaml
+Demo root:    $DEMOS_REPO/demos/grid-llmd-pool-metrics
+===============================================================================
+  Images:
+    gateway:      ghcr.io/praxis-proxy/grid-ai-rollup:v0.1.1
+    operator:     ghcr.io/praxis-proxy/grid-operator:v0.1.2
+    epp:          ghcr.io/llm-d/llm-d-inference-scheduler:v0.8.0
+    sim:          ghcr.io/llm-d/llm-d-inference-sim:v0.10.2
+    overlay-sync: ghcr.io/praxis-proxy/grid-overlay-sync:v0.1.2
+    nginx:        docker.io/library/nginx:1.27.4-alpine
+  registry image mode: images will be pulled by each cluster
+
+[SETUP 1/11] Validating Forge config
+  [OK] Config: $DEMOS_REPO/demos/grid-llmd-pool-metrics/.forge.resolved.yaml
+
+[SETUP 2/11] Generating TLS certificates
+  reusing existing CA certificate
+  reusing cert for pool-a
+  reusing cert for pool-b
+  reusing wrong-org cert
+  [OK] TLS certificates generated for pool-a, pool-b
+  [OK] Metrics TLS certificates generated (separate CA)
+
+[SETUP 3/11] Creating two Kind clusters: pool-a, pool-b
+
+[SETUP 4/11] Loading container images into clusters
+  [OK] Registry image mode: skipped local Kind image loading
+
+[SETUP 5/11] Installing MetalLB and Grid operators
+  [OK] pool-a: MetalLB and operator ready
+  [OK] pool-b: MetalLB and operator ready
+
+[SETUP 6/11] Seeding SWIM cross-cluster membership
+  pool-a: SWIM LB IP = 172.19.255.231
+  pool-b: SWIM LB IP = 172.19.255.211
+  pool-a: seeds=172.19.255.211:7946
+  pool-b: seeds=172.19.255.231:7946
+Waiting for deployment "grid-operator" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "grid-operator" rollout to finish: 1 old replicas are pending termination...
+deployment "grid-operator" successfully rolled out
+  [OK] pool-a: operator restarted with SWIM seeds
+Waiting for deployment "grid-operator" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "grid-operator" rollout to finish: 1 old replicas are pending termination...
+deployment "grid-operator" successfully rolled out
+  [OK] pool-b: operator restarted with SWIM seeds
+
+[SETUP 7/11] Installing metrics TLS secrets for EPP sidecar
+secret/metrics-ca created
+secret/metrics-server-tls created
+secret/metrics-client-tls created
+  [OK] pool-a: metrics TLS secrets installed
+secret/metrics-ca created
+secret/metrics-server-tls created
+secret/metrics-client-tls created
+  [OK] pool-b: metrics TLS secrets installed
+
+[SETUP 8/11] Deploying llm-d simulators and EPP
+  [OK] pool-a: sim-1, sim-2, and EPP running
+  [OK] pool-b: sim-1, sim-2, and EPP running
+
+[SETUP 9/11] Installing provider trust and credentials
+secret/consumer-gateway-tls created
+secret/provider-gateway-tls created
+secret/sim-inference-credential created
+  [OK] pool-a: TLS secrets and credentials installed
+secret/consumer-gateway-tls created
+secret/provider-gateway-tls created
+secret/sim-inference-credential created
+  [OK] pool-b: TLS secrets and credentials installed
+
+[SETUP 10/11] Deploying Grid site resources and gateways
+  [OK] pool-a: site and provider-gateway deployed
+  [OK] pool-b: site and provider-gateway deployed
+  [OK] pool-a: consumer-gateway deployed
+  [OK] pool-b: consumer-gateway deployed
+
+[SETUP 11/11] Waiting for overlay convergence
+  pool-a: authorizing remote provider sites
+  [OK] GridSite "grid-llmd-pool-metrics-pool-b" auto-created by operator (gridNetworkRef="grid-llmd-pool-metrics")
+  [OK] GridSite "grid-llmd-pool-metrics-pool-b": advertised certificate matches the staged identity
+  [OK] GridSite "grid-llmd-pool-metrics-pool-b": canonicalFingerprints + serverName="pool-b.grid.internal" patched
+  [OK] GridSite "grid-llmd-pool-metrics-pool-b": phase="Active" (confirmed)
+  pool-b: authorizing remote provider sites
+  [OK] GridSite "grid-llmd-pool-metrics-pool-a" auto-created by operator (gridNetworkRef="grid-llmd-pool-metrics")
+  [OK] GridSite "grid-llmd-pool-metrics-pool-a": advertised certificate matches the staged identity
+  [OK] GridSite "grid-llmd-pool-metrics-pool-a": canonicalFingerprints + serverName="pool-a.grid.internal" patched
+  [OK] GridSite "grid-llmd-pool-metrics-pool-a": phase="Active" (confirmed)
+  [OK] All auto-discovered remote GridSites authorized and Active
+  [OK] pool-a: overlay converged with both providers
+  [OK] pool-b: overlay converged with both providers
+
+[READY] Environment deployed
+
+===============================================================================
+ENVIRONMENT READY - Starting proof scenarios
+===============================================================================
+  Waiting for pool-a to become preferred (ramp reset)...
+  pool-a: queue=6.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=6.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=6.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=6.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=7.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=7.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=7.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=7.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=8.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=8.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=8.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=8.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=8.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=8.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=8.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=8.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=9.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=9.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=9.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=9.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=9.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=10.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=10.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=10.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=10.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=10.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=10.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=10.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=10.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=11.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=11.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=11.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=11.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=12.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=12.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=12.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=12.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=12.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=12.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=12.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=12.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=12.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=13.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=13.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=13.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=13.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=14.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=14.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=14.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=14.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=14.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=14.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=14.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=14.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=15.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=15.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=15.0 rank=1 (waiting for ramp reset)
+  pool-a: queue=15.0 rank=1 (waiting for ramp reset)
+  inference probe retrying: inference request returned HTTP 0
+
+  LLM-D POOL ROUTING DECISION
+  State: BASELINE
+
+                   Queue  Capacity  Pressure  KV Cache   Score  Rank
+       Cluster A     0.0        16      0.00      0.15   10.71     0
+       Cluster B     1.0        16      0.06      0.15    9.01     1
+  Score breakdown (llmd-pool-a-provider): locality=3.00 queue=3.00 kv=1.71 prefix=1.00 latency=1.00 cost=1.00
+  Score breakdown (llmd-pool-b-provider): locality=1.50 queue=2.81 kv=1.70 prefix=1.00 latency=1.00 cost=1.00
+
+  Grid preference: CLUSTER A
+
+
+===============================================================================
+TLS PROOF STAGES
+===============================================================================
+
+  [TLS 1/9] Baseline mTLS
+
+  [TLS 2/9] Handshake rejection
+
+  [TLS 3/9] Missing client identity
+secret "metrics-client-tls" deleted from grid-system namespace
+
+  [TLS 4/9] Wrong CA
+secret/metrics-client-tls created
+secret/metrics-ca configured
+
+  [TLS 5/9] Restore valid mTLS
+secret/metrics-ca configured
+secret/metrics-client-tls unchanged
+
+  [TLS 6/9] Stale-cache TTL
+    baseline: pool-a observable, score=8.98
+secret "metrics-client-tls" deleted from grid-system namespace
+    deleted Secret/metrics-client-tls to break TLS (staleMetricsSeconds=20)
+    inside-TTL (2s/20s): pool-a still observable, score=8.73 (cached metrics served)
+    post-TTL (28s/20s): pool-a unobservable (cached metrics expired, UNOBSERVABLE_METRICS applied)
+secret/metrics-client-tls created
+    recovery: pool-a observable after client cert restored, score=7.58
+
+  [TLS 7/9] Client Secret rotation
+secret/metrics-client-tls configured
+
+  [TLS 8/9] Server cert rotation
+secret/metrics-server-tls configured
+deployment.apps/llmd-epp restarted
+Waiting for deployment "llmd-epp" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "llmd-epp" rollout to finish: 1 old replicas are pending termination...
+deployment "llmd-epp" successfully rolled out
+
+  [TLS 9/9] Existing routing behavior
+
+  Restart accounting
+    pool-a/operator/grid-operator-77bfdd54b4-vwptq: uid unchanged, restart_count=0
+    pool-a/epp/llmd-epp-5f475b54fb-4v8qv: new pod after server cert rotation (expected), restart_count=0
+    pool-a/gateway/consumer-gateway-69786c4c8b-29km8: overlay-sync restarts=0
+    pool-a/gateway/consumer-gateway-69786c4c8b-29km8: praxis restarts=0
+    pool-a/gateway/provider-gateway-58bc5bbcc6-d9nmr: praxis restarts=0
+    pool-b/operator/grid-operator-6b688d9f7c-226f7: uid unchanged, restart_count=0
+    pool-b/epp/llmd-epp-5ffbc46b56-sjvkm: uid unchanged, restart_count=0
+    pool-b/gateway/consumer-gateway-66b75f84dc-chqls: overlay-sync restarts=0
+    pool-b/gateway/consumer-gateway-66b75f84dc-chqls: praxis restarts=0
+    pool-b/gateway/provider-gateway-564df88cdf-4qr9s: praxis restarts=0
+    server rotation (stage 8) on pool-a: EPP rollout restart is expected — nginx does not reload TLS in-place
+
+[TEARDOWN] Removing Kind clusters
+  [OK] Teardown complete
+
+===============================================================================
+DEMO PASSED  (347.0s)
+Evidence: $DEMOS_REPO/demos/grid-llmd-pool-metrics/evidence/20260805T184245Z/evidence.json
+===============================================================================

@@ -20,6 +20,30 @@ Each demo lives under `demos/<name>/` with its own README and bring-up script.
 | [openai-responses-agentic-loop](demos/openai-responses-agentic-loop/) | Server-side agentic loop — model calls an MCP tool, Praxis dispatches to the MCP server and loops the result back to the model for a final answer. No client-side orchestration needed. |
 | [skillberry-agent-proxy](demos/skillberry-agent-proxy/) | A fully automated demo of Praxis as an agentic gateway for the Skillberry Agent platform, based on [skillberry-agent-praxis-poc](https://github.com/skillberry-ai/skillberry-agent-praxis-poc) |
 
+## Grid QuickStarts
+
+Multi-cluster Grid demos that prove distributed inference routing with
+runtime assertions. Each demo requires a local
+[praxis-proxy/grid](https://github.com/praxis-proxy/grid) checkout
+(or set `GRID_REPO`), Docker, kind, and Rust.
+
+| Demo | Description |
+|------|-------------|
+| [grid-glb-demo](demos/grid-glb-demo/) | Local GTM emulator, multiple active edges, independent provider selection |
+| [grid-workload-inference](demos/grid-workload-inference/) | Cluster-local workload entry without public ingress |
+| [grid-llmd-pool-metrics](demos/grid-llmd-pool-metrics/) | EPP telemetry, Grid scoring, A-to-B-to-A capacity failover |
+| [grid-combined-site](demos/grid-combined-site/) | Consumer and secured provider roles colocated at each site |
+
+## Grid Labs and Guides
+
+Script-driven Grid demos and reference guides for specific topics.
+
+| Demo | Description |
+|------|-------------|
+| [grid-route53-edge-entry](demos/grid-route53-edge-entry/) | Route 53 DNS edge selection with Grid provider routing on existing OpenShift clusters |
+| [grid-metrics-mtls](demos/grid-metrics-mtls/) | Secret-backed TLS and mTLS for InferenceProvider metrics scraping |
+| [maas-ipp](demos/maas-ipp/) | Single-cluster MaaS IPP lab reproducing the stock MaaS Kind datapath with Forge |
+
 ## Layout
 
 ```text
