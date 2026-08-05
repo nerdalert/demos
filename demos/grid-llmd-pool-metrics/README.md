@@ -6,6 +6,31 @@ clusters. Inference simulators emit controlled metric values; every other
 component -- llm-d EPP, Grid operator, overlay delivery, Praxis routing -- runs
 its production code path.
 
+## Metrics Transport
+
+llm-d EPP normally exposes Prometheus metrics over HTTP on port `9090`. In the
+default demo mode, Grid scrapes that endpoint directly. This is the simplest
+path for development and matches an llm-d deployment without a separate
+metrics security layer.
+
+The optional `--metrics-mtls` mode adds nginx in front of the EPP metrics
+endpoint. nginx requires a Grid operator client certificate, terminates TLS on
+port `9443`, and forwards the scrape to EPP over local HTTP. nginx is a demo
+component, not part of llm-d, and it never handles inference traffic.
+
+```text
+Default:  Grid operator ---- HTTP ----> llm-d EPP :9090/metrics
+
+mTLS:     Grid operator -- HTTPS/mTLS -> nginx :9443
+                                            |
+                                            +-- HTTP -> llm-d EPP :9090/metrics
+```
+
+In production, the same protection could be provided by a service mesh,
+platform proxy, or an EPP implementation with native TLS. The nginx mode
+exists to validate Grid's client-certificate support without requiring one of
+those platform-specific integrations.
+
 ## Topology
 
 ```text
@@ -34,7 +59,7 @@ its production code path.
 - Content-addressed overlay published and hot-reloaded without pod restart
 - Scorecard shows raw metrics, weighted scores, and ranks from the same overlay
   revision
-- Metrics TLS lifecycle (9 stages): baseline mTLS, handshake rejection,
+- Optional metrics TLS lifecycle (9 stages): baseline mTLS, handshake rejection,
   missing client identity, wrong CA, valid restore, stale-cache TTL expiry
   and recovery, client cert rotation, server cert rotation with nginx
   restart, and end-to-end routing verification after the full TLS cycle
@@ -57,9 +82,14 @@ export GRID_XTASK_GATEWAY_IMAGE=ghcr.io/praxis-proxy/grid-ai-rollup:v0.1.1
 export GRID_XTASK_OPERATOR_IMAGE=ghcr.io/praxis-proxy/grid-operator:v0.1.2
 export GRID_XTASK_EPP_IMAGE=ghcr.io/llm-d/llm-d-inference-scheduler:v0.8.0
 export GRID_XTASK_SIM_IMAGE=ghcr.io/llm-d/llm-d-inference-sim:v0.10.2
-export GRID_XTASK_NGINX_IMAGE=docker.io/library/nginx:1.27.4-alpine
 export GRID_XTASK_OVERLAY_SYNC_IMAGE=ghcr.io/praxis-proxy/grid-overlay-sync:v0.1.2
 export GRID_XTASK_IMAGE_PULL_POLICY=IfNotPresent
+```
+
+Only the optional mTLS mode also needs nginx:
+
+```bash
+export GRID_XTASK_NGINX_IMAGE=docker.io/library/nginx:1.27.4-alpine
 ```
 
 The rollup remains at `v0.1.1` because Grid v0.1.2 did not change the temporary
@@ -72,7 +102,7 @@ The complete image set is:
 |-------|---------|---------|
 | `llm-d-epp` | `GRID_XTASK_EPP_IMAGE` | llm-d Endpoint Picker / metrics aggregator |
 | `llm-d-inference-sim` | `GRID_XTASK_SIM_IMAGE` | vLLM-compatible inference simulator |
-| `nginx` | `GRID_XTASK_NGINX_IMAGE` | TLS proxy for EPP metrics scraping (official image, no custom build) |
+| `nginx` | `GRID_XTASK_NGINX_IMAGE` | Optional mTLS proxy for EPP metrics; not an llm-d component |
 | `grid-overlay-sync` | `GRID_XTASK_OVERLAY_SYNC_IMAGE` | Overlay ConfigMap delivery sidecar |
 
 ## Quick Start
@@ -80,6 +110,18 @@ The complete image set is:
 ```bash
 ./run.sh --quick --teardown
 ```
+
+This default path scrapes EPP directly over HTTP and does not deploy nginx or
+metrics TLS certificates.
+
+To validate an mTLS-protected metrics endpoint:
+
+```bash
+./run.sh --quick --metrics-mtls --teardown
+```
+
+The mTLS path adds the nine certificate, failure, rotation, recovery, and
+routing proof stages. It fails closed and never falls back to plaintext.
 
 ## Full Mode
 

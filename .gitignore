@@ -30,6 +30,7 @@ target
 .grid-checkout/
 demos/grid-*/.forge/
 demos/grid-*/.forge.resolved.yaml
+demos/grid-*/.forge.resolved.*.yaml
 demos/grid-*/evidence/
 demos/grid-*/evidence-*/
 demos/grid-*/.cache/

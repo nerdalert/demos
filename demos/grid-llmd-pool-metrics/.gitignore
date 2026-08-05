@@ -1,3 +1,4 @@
 .forge/
 .forge.resolved.yaml
+.forge.resolved.*.yaml
 evidence/
