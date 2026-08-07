@@ -2,3 +2,7 @@
 .forge.resolved.yaml
 .forge.resolved.*.yaml
 evidence/
+
+# Local validation transcripts; canonical full and mTLS examples are tracked
+e2e-quick-output.txt
+validation-output.txt

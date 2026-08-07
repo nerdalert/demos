@@ -1,22 +1,66 @@
 # Grid LLM-d Pool Metrics Demo
 
-Proves that simulated inference telemetry drives real EPP aggregation, Grid
-scoring, overlay publication, and Praxis routing decisions across two Kind
-clusters. Inference simulators emit controlled metric values; every other
-component -- llm-d EPP, Grid operator, overlay delivery, Praxis routing -- runs
-its production code path.
+Proves that real vLLM frontend metrics drive EPP aggregation, Grid scoring,
+overlay publication, and Praxis routing decisions across two Kind clusters.
+Each cluster runs two vllm-vcr inference backends (vllm-rs frontend + vllm-vcr
+mock engine-core) that produce standard vLLM Prometheus metrics from actual
+HTTP request processing. Every other component -- llm-d EPP, Grid operator,
+overlay delivery, Praxis routing -- runs its production code path.
+
+No GPU or model weights are required. The vllm-rs frontend downloads only the
+tokenizer from Hugging Face at startup.
+
+## Architecture
+
+```text
+                          Grid / Praxis
+                               |
+                     +---------+---------+
+                     |                   |
+              consumer-gateway    consumer-gateway
+              (overlay routing)   (overlay routing)
+                     |                   |
+              provider-gateway    provider-gateway
+              (mTLS + creds)      (mTLS + creds)
+                     |                   |
+          +----------+------+   +--------+--------+
+          |    pool-a       |   |    pool-b        |
+          |                 |   |                  |
+          | sim-1 sim-2     |   | sim-1 sim-2      |
+          |  (vllm-vcr)     |   |  (vllm-vcr)      |
+          |    |     |      |   |    |     |       |
+          |    +--+--+      |   |    +--+--+       |
+          |       |         |   |       |          |
+          |   llm-d EPP     |   |   llm-d EPP      |
+          |   :9090/metrics |   |   :9090/metrics  |
+          |       |         |   |       |          |
+          |  Grid Operator  |   |  Grid Operator   |
+          +--------+--------+   +--------+---------+
+                   |    SWIM mesh (UDP)    |
+                   +--------+--------------+
+
+pressure-generator (pool-a only, scaled 0 at rest)
+       |
+       +---> consumer-gateway.grid-system:8080
+             /v1/chat/completions
+             (routed through full Grid path)
+```
+
+Each [vllm-vcr](https://github.com/neuralmagic/vllm-vcr/blob/main/README.md) pod
+runs two processes via `entrypoint.sh`:
+- **vllm-rs**: the real vLLM Rust HTTP frontend (serves /health, /v1/models,
+  /v1/chat/completions, /metrics on port 8000)
+- **vllm-vcr play**: mock engine-core backend (connects via ZMQ handshake,
+  generates random tokens with configurable latency)
 
 ## Metrics Transport
 
 llm-d EPP normally exposes Prometheus metrics over HTTP on port `9090`. In the
-default demo mode, Grid scrapes that endpoint directly. This is the simplest
-path for development and matches an llm-d deployment without a separate
-metrics security layer.
+default demo mode, Grid scrapes that endpoint directly.
 
 The optional `--metrics-mtls` mode adds nginx in front of the EPP metrics
 endpoint. nginx requires a Grid operator client certificate, terminates TLS on
-port `9443`, and forwards the scrape to EPP over local HTTP. nginx is a demo
-component, not part of llm-d, and it never handles inference traffic.
+port `9443`, and forwards the scrape to EPP over local HTTP.
 
 ```text
 Default:  Grid operator ---- HTTP ----> llm-d EPP :9090/metrics
@@ -26,36 +70,54 @@ mTLS:     Grid operator -- HTTPS/mTLS -> nginx :9443
                                             +-- HTTP -> llm-d EPP :9090/metrics
 ```
 
-In production, the same protection could be provided by a service mesh,
-platform proxy, or an EPP implementation with native TLS. The nginx mode
-exists to validate Grid's client-certificate support without requiring one of
-those platform-specific integrations.
+## Controlled Pressure
 
-## Topology
+The demo generates real HTTP load through the **consumer Grid gateway**,
+replacing the previous fake-metrics ramp approach. Traffic flows through the
+full routing chain: consumer gateway, intelligent routing overlay, provider
+gateway (mTLS), and finally to VCR backends. A pressure-generator Deployment
+in pool-a starts scaled to zero and is controlled by the xtask orchestration:
+
+1. **Baseline**: Both pools idle, pool-a preferred (rank 0). Probe requests
+   through the gateway confirm pool-a attribution.
+2. **Pressure**: Xtask scales pressure-generator to 3 replicas, each sending
+   4 concurrent `/v1/chat/completions` requests through the consumer gateway.
+   Initially all requests route to pool-a (rank 0).
+3. **Failover**: Pool-a queue depth and KV-cache utilization rise, EPP reports
+   pressure, scoring engine flips preference to pool-b. Subsequent requests
+   are routed to pool-b, visible in both the attribution headers and the live
+   metrics table.
+4. **Recovery**: Xtask scales pressure-generator to 0. Both pools drain, pool-a
+   regains rank 0. Probe requests confirm pool-a attribution restored.
+
+Each pressure-generator pod tracks request attribution via the
+`X-Grid-LlmD-Provider-Gateway` response header and reports per-pool counts.
+The xtask reads these counts and displays a live metrics table:
 
 ```text
-+-------------------------------+  +-------------------------------+
-|         Kind: pool-a          |  |         Kind: pool-b          |
-|                               |  |                               |
-|  sim-1 --+                    |  |  sim-1 --+                    |
-|           +-> llm-d EPP <-+  |  |           +-> llm-d EPP <-+  |
-|  sim-2 --+    :9090    Grid|  |  |  sim-2 --+    :9090    Grid|  |
-|                     Operator|  |  |                     Operator|  |
-|  provider-gateway (mTLS)    |  |  |  provider-gateway (mTLS)    |  |
-|  consumer-gateway <- overlay|  |  |  consumer-gateway <- overlay|  |
-+---------------+-------------+  +---------------+-------------+
-                |       SWIM mesh (UDP)           |
-                +---------------------------------+
-
-2 Kind clusters, model=llmd-sim-model, scoreFirst routing
+TIME   PHASE      A_QUEUE  A_KV A_SCORE A_RANK  B_QUEUE  B_KV B_SCORE B_RANK  A_REQ B_REQ LAST_ROUTE
+00:10  BASELINE       0.0  .00   11.00      0      0.0  .00    9.50      1       0     0          -
+00:25  PRESSURE       3.2  .45    8.10      0      0.0  .00    9.50      1      18     0     pool-a
+00:40  FAILOVER       4.0  .81    5.48      1      1.0  .12    9.26      0      31    12     pool-b
+01:05  RECOVERY       0.5  .08   10.84      0      0.0  .00    9.50      1      42    19     pool-a
 ```
+
+VCR pods are configured with small scheduler limits (`MOCK_MAX_NUM_SEQS=4`,
+`MOCK_KV_CACHE_SIZE=64`) and moderate latency (`MOCK_TTFT_MS=50`,
+`MOCK_ITL_MS=20`) so that modest gateway-routed load creates observable
+pressure.
 
 ## What It Proves
 
-- llm-d EPP aggregates per-simulator metrics into pool-level summaries
+- vllm-rs frontend produces standard vLLM Prometheus metrics
+- llm-d EPP aggregates per-backend metrics into pool-level summaries
 - Grid operator scrapes EPP and scores backends with production scoring engine
-- Metrics-driven preference flip: Pool A pressure causes B to outrank A
-- A-to-B-to-A capacity failover as Pool A ramp resets
+- Gateway-routed load visibly shifts request attribution from pool-a to pool-b
+  as pressure builds (not just rank changes -- actual routed traffic)
+- Live metrics table shows queue depth, KV-cache, scores, ranks, per-pool
+  request counts, and last-route attribution through the full lifecycle
+- A-to-B-to-A capacity failover as Pool A load is removed, confirmed by
+  measured queue drain and restored attribution
 - Content-addressed overlay published and hot-reloaded without pod restart
 - Scorecard shows raw metrics, weighted scores, and ranks from the same overlay
   revision
@@ -70,18 +132,17 @@ those platform-specific integrations.
 - Docker or Podman
 - kind
 - Rust stable 1.96+
-- Approximately 4 GB RAM for two Kind clusters
+- Network access for Hugging Face tokenizer download (first run)
+- Approximately 8 GB RAM for two Kind clusters (vllm-vcr pods require more
+  memory than the previous inference-sim)
 
-## Registry Images (Grid v0.1.2+)
-
-This demo requires Grid v0.1.2 or later. The v0.1.1 operator image does not
-contain the mTLS metrics scraping pipeline needed for the TLS proof stages.
+## Registry Images
 
 ```bash
 export GRID_XTASK_GATEWAY_IMAGE=ghcr.io/praxis-proxy/grid-ai-rollup:v0.1.1
 export GRID_XTASK_OPERATOR_IMAGE=ghcr.io/praxis-proxy/grid-operator:v0.1.2
 export GRID_XTASK_EPP_IMAGE=ghcr.io/llm-d/llm-d-inference-scheduler:v0.8.0
-export GRID_XTASK_SIM_IMAGE=ghcr.io/llm-d/llm-d-inference-sim:v0.10.2
+export GRID_XTASK_VCR_IMAGE=ghcr.io/neuralmagic/vllm-vcr:vllm0.23
 export GRID_XTASK_OVERLAY_SYNC_IMAGE=ghcr.io/praxis-proxy/grid-overlay-sync:v0.1.2
 export GRID_XTASK_IMAGE_PULL_POLICY=IfNotPresent
 ```
@@ -92,18 +153,38 @@ Only the optional mTLS mode also needs nginx:
 export GRID_XTASK_NGINX_IMAGE=docker.io/library/nginx:1.27.4-alpine
 ```
 
-The rollup remains at `v0.1.1` because Grid v0.1.2 did not change the temporary
-Praxis AI rollup image. Grid v0.1.2 supplies the updated operator and
-overlay-sync images.
-
 The complete image set is:
 
 | Image | Env var | Purpose |
 |-------|---------|---------|
 | `llm-d-epp` | `GRID_XTASK_EPP_IMAGE` | llm-d Endpoint Picker / metrics aggregator |
-| `llm-d-inference-sim` | `GRID_XTASK_SIM_IMAGE` | vLLM-compatible inference simulator |
-| `nginx` | `GRID_XTASK_NGINX_IMAGE` | Optional mTLS proxy for EPP metrics; not an llm-d component |
+| `vllm-vcr` | `GRID_XTASK_VCR_IMAGE` | vllm-rs frontend + vllm-vcr mock engine-core |
+| `nginx` | `GRID_XTASK_NGINX_IMAGE` | Optional mTLS proxy for EPP metrics |
 | `grid-overlay-sync` | `GRID_XTASK_OVERLAY_SYNC_IMAGE` | Overlay ConfigMap delivery sidecar |
+
+## Local Image Development
+
+To build the vllm-vcr image locally from the checked-out repository:
+
+```bash
+cd vllm-vcr
+docker build -t ghcr.io/neuralmagic/vllm-vcr:vllm0.23 .
+```
+
+For Kind clusters, load the image after building:
+
+```bash
+export GRID_XTASK_VCR_IMAGE=ghcr.io/neuralmagic/vllm-vcr:vllm0.23
+```
+
+The xtask loads images into Kind nodes automatically. Set
+`imagePullPolicy: IfNotPresent` (the default) so Kind uses the loaded image
+instead of pulling from the registry.
+
+The vllm-rs frontend downloads the Qwen/Qwen3-0.6B tokenizer from Hugging Face
+on first startup. In Kind, pods have internet access via Docker networking. If
+running in an air-gapped environment, pre-populate `HF_HOME` (default `/tmp/hf`
+inside the container) with the tokenizer files.
 
 ## Quick Start
 
@@ -111,8 +192,8 @@ The complete image set is:
 ./run.sh --quick --teardown
 ```
 
-This default path scrapes EPP directly over HTTP and does not deploy nginx or
-metrics TLS certificates.
+This scrapes EPP directly over HTTP and does not deploy nginx or metrics TLS
+certificates.
 
 To validate an mTLS-protected metrics endpoint:
 
@@ -120,17 +201,13 @@ To validate an mTLS-protected metrics endpoint:
 ./run.sh --quick --metrics-mtls --teardown
 ```
 
-The mTLS path adds the nine certificate, failure, rotation, recovery, and
-routing proof stages. It fails closed and never falls back to plaintext.
-
 ## Full Mode
 
 ```bash
 ./run.sh --full --teardown
 ```
 
-Full mode adds the pressure-flip and recovery proofs (approximately 4 minutes
-additional for the 120-second simulator ramp cycle).
+Full mode adds the pressure-flip and recovery proofs.
 
 ## Teardown and Keep-on-Failure
 
@@ -144,24 +221,47 @@ Add `--keep-on-failure` to retain clusters when a proof fails:
 ## Evidence
 
 Each run writes evidence to the evidence directory (default: `evidence/`).
-See [e2e-demo-output.txt](e2e-demo-output.txt) for checked-in example output
-from a full cold run.
+See [e2e-demo-output.txt](e2e-demo-output.txt) for example output from a
+successful run.
+
+## Troubleshooting
+
+**VCR pods stuck in init / not ready**: The vllm-rs frontend downloads the
+tokenizer from Hugging Face on first start. Check pod logs for download
+progress. The startup probe allows up to 600 seconds.
+
+**EPP shows no metrics**: Verify that the InferencePool selector (`app:
+vllm-vcr`) matches the VCR pod labels. Check that VCR pods respond to
+`/metrics` by exec-ing into a pod and running `curl localhost:8000/metrics`.
+
+**Pressure does not cause flip**: Verify the pressure-generator pods are
+running (`kubectl get pods -l app=pressure-generator -n grid-system`). Check
+that the consumer gateway is reachable from the pressure pods. Verify VCR pod
+logs show incoming requests. Ensure `MOCK_MAX_NUM_SEQS` is small enough
+(default 4) that requests queue quickly. Check the live table LAST_ROUTE
+column to see if attribution is shifting.
+
+**Queue does not drain after pressure stops**: VCR pods process queued requests
+to completion. Recovery takes longer with high `max_tokens` in the pressure
+generator requests or with `MOCK_TIME_FACTOR_UNDER_LOAD > 1.0`.
 
 ## Known Limitations
 
-- Simulated telemetry only; `--fake-metrics` generators produce controlled ramp
-  patterns, not measurements from real GPU inference workloads.
+- No real GPU inference; vllm-vcr generates random tokens, so response content
+  is meaningless.
 - No P99 latency or prefix-cache derivation; both signals default to 0.5
   (neutral).
 - Two-pool topology; each cluster's own provider scores with full locality
   (1.0) while the remote peer scores at 0.5.
 - No cost signal; defaults to 0.5.
-- No hysteresis or minimum switch margin; a 0.01-point score difference
-  triggers a rank change.
+- No hysteresis or minimum switch margin; a score difference triggers a rank
+  change.
 - Missing telemetry scores neutrally, which can cause an unobservable provider
   to outrank one with known high pressure.
 
 ## Implementation Documentation
 
 See the [Grid repository](https://github.com/praxis-proxy/grid) for full
-architecture, scoring model, and implementation details.
+architecture, scoring model, and implementation details. See the
+[vllm-vcr README](https://github.com/neuralmagic/vllm-vcr/blob/main/README.md)
+for the VCR architecture, entrypoint configuration, and deployment examples.
