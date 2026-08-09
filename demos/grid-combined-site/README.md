@@ -42,6 +42,24 @@ disposable Kind demo.
 - Remote provider fallback after local provider drain
 - Routing returns to restored local provider after overlay hot reload
 
+## Scoring and Routing Policy
+
+This demo intentionally uses Grid's defaults:
+
+    scoringPolicy is omitted, which defaults to noMetrics.
+    routingPolicy is omitted, which defaults to geographyFirst.
+
+The noMetrics strategy means that this demo does not use VCR or EPP telemetry
+for provider scoring. Health, admission, model compatibility, locality,
+freshness, session affinity, and provider availability still apply. The
+full-mode transition is therefore an availability and remote-fallback
+scenario, not a pressure-scoring scenario.
+
+Grid also supports queueDepth and kvCachePressure when competing providers
+expose comparable Prometheus telemetry. scoreFirst allows a sufficiently
+better metric score to outrank locality; geographyFirst preserves locality
+ahead of dynamic score and is the default used here.
+
 ## Prerequisites
 
 - A local [praxis-proxy/grid](https://github.com/praxis-proxy/grid) checkout (or set `GRID_REPO`)
@@ -53,8 +71,8 @@ disposable Kind demo.
 ## Registry Images
 
 ```bash
-export GRID_XTASK_GATEWAY_IMAGE=ghcr.io/praxis-proxy/grid-ai-rollup:v0.1.1
-export GRID_XTASK_OPERATOR_IMAGE=ghcr.io/praxis-proxy/grid-operator:v0.1.1
+export GRID_XTASK_GATEWAY_IMAGE=ghcr.io/praxis-proxy/grid-ai-rollup:v0.1.3
+export GRID_XTASK_OPERATOR_IMAGE=ghcr.io/praxis-proxy/grid-operator:v0.1.3
 export GRID_XTASK_VCR_IMAGE=ghcr.io/neuralmagic/vllm-vcr:vllm0.23
 export GRID_XTASK_IMAGE_PULL_POLICY=IfNotPresent
 ```

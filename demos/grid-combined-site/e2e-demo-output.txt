@@ -1,6 +1,3 @@
-This checked-in transcript is intentionally pending regeneration after the
-vllm-vcr migration. Run `./run.sh --quick --teardown` to generate a fresh
-transcript and evidence from the VCR-backed topology.
-
-The previous transcript described the retired mock-provider backend and must
-not be used as migration evidence.
+This checked-in transcript is a placeholder for the VCR-backed combined-site
+demo. Run `./run.sh --quick --teardown` to generate fresh transcript and
+evidence.

@@ -50,6 +50,24 @@ providers, proving that Grid does not assume one provider per cluster.
 - Live overlay hot reload without pod restart
 - Edge withdrawal, recovery, and failback behind one HTTPS name
 
+## Scoring and Routing Policy
+
+This demo intentionally uses Grid's default provider scoring behavior:
+
+    scoringPolicy is omitted, which defaults to noMetrics.
+    routingPolicy is omitted, which defaults to geographyFirst.
+
+noMetrics does not disable routing policy. Health, admission, model
+compatibility, locality, freshness, session affinity, and provider availability
+still determine which candidates are eligible and how they are ordered.
+Because this GLB topology does not collect VCR/EPP pressure metrics, it does
+not use queueDepth or kvCachePressure to make routing decisions.
+
+Grid also supports queueDepth and kvCachePressure for deployments with
+comparable provider telemetry. scoreFirst can allow a better metric score to
+outrank locality; geographyFirst keeps locality ahead of dynamic score and is
+the default used here.
+
 ## Prerequisites
 
 - A local [praxis-proxy/grid](https://github.com/praxis-proxy/grid) checkout (or set `GRID_REPO`)
@@ -61,8 +79,8 @@ providers, proving that Grid does not assume one provider per cluster.
 ## Registry Images
 
 ```bash
-export GRID_XTASK_GATEWAY_IMAGE=ghcr.io/praxis-proxy/grid-ai-rollup:v0.1.1
-export GRID_XTASK_OPERATOR_IMAGE=ghcr.io/praxis-proxy/grid-operator:v0.1.1
+export GRID_XTASK_GATEWAY_IMAGE=ghcr.io/praxis-proxy/grid-ai-rollup:v0.1.3
+export GRID_XTASK_OPERATOR_IMAGE=ghcr.io/praxis-proxy/grid-operator:v0.1.3
 export GRID_XTASK_VCR_IMAGE=ghcr.io/neuralmagic/vllm-vcr:vllm0.23
 export GRID_XTASK_IMAGE_PULL_POLICY=IfNotPresent
 ```
