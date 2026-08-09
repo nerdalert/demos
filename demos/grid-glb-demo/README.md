@@ -2,8 +2,9 @@
 
 One stable HTTPS inference endpoint backed by two active Praxis edge gateways,
 two private provider gateways, and a local GTM emulator that selects a healthy
-edge. The east provider cluster hosts two independent providers for
-`sim-model-v1`, proving that Grid does not assume one provider per cluster.
+edge. The provider clusters run CPU-only `vllm-vcr` backends serving
+`Qwen/Qwen3-0.6B`; the east provider cluster hosts two independent VCR
+providers, proving that Grid does not assume one provider per cluster.
 
 ## Topology
 
@@ -45,7 +46,7 @@ edge. The east provider cluster hosts two independent providers for
 - Two independent providers at the east site with distinct stable IDs
 - Secure provider boundary: mTLS, peer authorization, credential replacement
 - Edge and provider session affinity under separate keys
-- Metrics-driven provider drain (queue depth triggers `existing_only`)
+- Provider withdrawal, recovery, and failback through the existing GLB scenario
 - Live overlay hot reload without pod restart
 - Edge withdrawal, recovery, and failback behind one HTTPS name
 
@@ -62,7 +63,7 @@ edge. The east provider cluster hosts two independent providers for
 ```bash
 export GRID_XTASK_GATEWAY_IMAGE=ghcr.io/praxis-proxy/grid-ai-rollup:v0.1.1
 export GRID_XTASK_OPERATOR_IMAGE=ghcr.io/praxis-proxy/grid-operator:v0.1.1
-export GRID_XTASK_MOCK_PROVIDER_IMAGE=ghcr.io/praxis-proxy/grid-mock-providers:v0.1.1
+export GRID_XTASK_VCR_IMAGE=ghcr.io/neuralmagic/vllm-vcr:vllm0.23
 export GRID_XTASK_IMAGE_PULL_POLICY=IfNotPresent
 ```
 
@@ -78,8 +79,10 @@ export GRID_XTASK_IMAGE_PULL_POLICY=IfNotPresent
 ./run.sh --full --teardown
 ```
 
-Full mode adds repeated affinity, provider drain, edge withdrawal/recovery,
-sequential Grid operator restarts, and a configured request soak.
+Full mode adds repeated affinity, explicit provider availability withdrawal and
+recovery, edge withdrawal/recovery, sequential Grid operator restarts, and a
+configured request soak. The provider transition is an availability/failover
+exercise, not an EPP pressure-scoring exercise.
 
 ## Teardown and Keep-on-Failure
 
@@ -103,10 +106,15 @@ from a quick cold run.
 - The GTM emulator is a local stand-in; it does not reproduce Internet routing,
   DNS propagation, Anycast, geographic steering, or DDoS protection.
 - Kind networking does not represent production latency or failure modes.
-- Simulated inference providers return canned responses.
+- `vllm-vcr` provides CPU-only OpenAI-compatible responses without model weights;
+  it is a response/latency simulator, not model-quality inference.
+- This GLB mode does not use VCR/EPP metrics for Grid scoring. Pressure and
+  provider-metrics demonstrations belong to the llm-d pool-metrics demo.
 - The emulator-to-edge hop is plaintext HTTP inside the isolated demo network.
 
 ## Implementation Documentation
 
+The VCR backend is documented at
+[neuralmagic/vllm-vcr](https://github.com/neuralmagic/vllm-vcr/blob/main/README.md).
 See the [Grid repository](https://github.com/praxis-proxy/grid) for full
 architecture, design documentation, and implementation details.

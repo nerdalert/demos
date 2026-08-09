@@ -1,18 +1,18 @@
 Demo:         grid-llmd-pool-metrics
 Subcommand:   run-grid-llmd-pool-metrics-demo
-Forge config: /home/ubuntu/praxxis/ai-grid/prs/sim-vcr-aigrid/demos/demos/grid-llmd-pool-metrics/forge.yaml
-Demo root:    /home/ubuntu/praxxis/ai-grid/prs/sim-vcr-aigrid/demos/demos/grid-llmd-pool-metrics
-Grid repo:    /home/ubuntu/praxxis/ai-grid/prs/sim-vcr-aigrid/grid
+Forge config: demos/demos/grid-llmd-pool-metrics/forge.yaml
+Demo root:    demos/demos/grid-llmd-pool-metrics
+Grid repo:    grid
 
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.14s
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.10s
-     Running `target/debug/xtask env run-grid-llmd-pool-metrics-demo --forge-config /home/ubuntu/praxxis/ai-grid/prs/sim-vcr-aigrid/demos/demos/grid-llmd-pool-metrics/forge.yaml --quick --metrics-mtls --teardown --keep-on-failure`
+     Running `target/debug/xtask env run-grid-llmd-pool-metrics-demo --forge-config demos/demos/grid-llmd-pool-metrics/forge.yaml --quick --metrics-mtls --teardown --keep-on-failure`
 ===============================================================================
 Grid llm-d Pool-Metrics Routing Demo
 Mode: quick
 Metrics transport: mtls-proxy
-Forge config: /home/ubuntu/praxxis/ai-grid/prs/sim-vcr-aigrid/demos/demos/grid-llmd-pool-metrics/forge.yaml
-Demo root:    /home/ubuntu/praxxis/ai-grid/prs/sim-vcr-aigrid/demos/demos/grid-llmd-pool-metrics
+Forge config: demos/demos/grid-llmd-pool-metrics/forge.yaml
+Demo root:    demos/demos/grid-llmd-pool-metrics
 ===============================================================================
   Images:
     gateway:      ghcr.io/praxis-proxy/grid-ai-rollup:v0.1.1
@@ -24,7 +24,7 @@ Demo root:    /home/ubuntu/praxxis/ai-grid/prs/sim-vcr-aigrid/demos/demos/grid-l
   registry image mode: images will be pulled by each cluster
 
 [SETUP 1/11] Validating Forge config
-  [OK] Config: /home/ubuntu/praxxis/ai-grid/prs/sim-vcr-aigrid/demos/demos/grid-llmd-pool-metrics/.forge.resolved.yaml
+  [OK] Config: demos/demos/grid-llmd-pool-metrics/.forge.resolved.yaml
 
 [SETUP 2/11] Generating TLS certificates (gateway + metrics)
   reusing existing CA certificate
@@ -185,5 +185,5 @@ deployment "llmd-epp" successfully rolled out
 
 ===============================================================================
 DEMO PASSED  (333.3s)
-Evidence: /home/ubuntu/praxxis/ai-grid/prs/sim-vcr-aigrid/demos/demos/grid-llmd-pool-metrics/evidence/20260807T062828Z/evidence.json
+Evidence: demos/demos/grid-llmd-pool-metrics/evidence/20260807T062828Z/evidence.json
 ===============================================================================

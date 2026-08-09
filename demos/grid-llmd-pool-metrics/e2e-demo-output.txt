@@ -1,20 +1,20 @@
 Demo:         grid-llmd-pool-metrics
 Subcommand:   run-grid-llmd-pool-metrics-demo
-Forge config: /home/ubuntu/praxxis/ai-grid/prs/sim-vcr-aigrid/demos/demos/grid-llmd-pool-metrics/forge.yaml
-Demo root:    /home/ubuntu/praxxis/ai-grid/prs/sim-vcr-aigrid/demos/demos/grid-llmd-pool-metrics
-Grid repo:    /home/ubuntu/praxxis/ai-grid/prs/sim-vcr-aigrid/grid
+Forge config: demos/demos/grid-llmd-pool-metrics/forge.yaml
+Demo root:    demos/demos/grid-llmd-pool-metrics
+Grid repo:    grid
 
-   Compiling xtask v0.1.2 (/home/ubuntu/praxxis/ai-grid/prs/sim-vcr-aigrid/grid/xtask)
+   Compiling xtask v0.1.2 (grid/xtask)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.16s
-   Compiling xtask v0.1.2 (/home/ubuntu/praxxis/ai-grid/prs/sim-vcr-aigrid/grid/xtask)
+   Compiling xtask v0.1.2 (grid/xtask)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.11s
-     Running `target/debug/xtask env run-grid-llmd-pool-metrics-demo --forge-config /home/ubuntu/praxxis/ai-grid/prs/sim-vcr-aigrid/demos/demos/grid-llmd-pool-metrics/forge.yaml --full --teardown --keep-on-failure`
+     Running `target/debug/xtask env run-grid-llmd-pool-metrics-demo --forge-config demos/demos/grid-llmd-pool-metrics/forge.yaml --full --teardown --keep-on-failure`
 ===============================================================================
 Grid llm-d Pool-Metrics Routing Demo
 Mode: full
 Metrics transport: direct-http
-Forge config: /home/ubuntu/praxxis/ai-grid/prs/sim-vcr-aigrid/demos/demos/grid-llmd-pool-metrics/forge.yaml
-Demo root:    /home/ubuntu/praxxis/ai-grid/prs/sim-vcr-aigrid/demos/demos/grid-llmd-pool-metrics
+Forge config: demos/demos/grid-llmd-pool-metrics/forge.yaml
+Demo root:    demos/demos/grid-llmd-pool-metrics
 ===============================================================================
   Images:
     gateway:      ghcr.io/praxis-proxy/grid-ai-rollup:v0.1.1
@@ -25,7 +25,7 @@ Demo root:    /home/ubuntu/praxxis/ai-grid/prs/sim-vcr-aigrid/demos/demos/grid-l
   registry image mode: images will be pulled by each cluster
 
 [SETUP 1/10] Validating Forge config
-  [OK] Config: /home/ubuntu/praxxis/ai-grid/prs/sim-vcr-aigrid/demos/demos/grid-llmd-pool-metrics/.forge.resolved.yaml
+  [OK] Config: demos/demos/grid-llmd-pool-metrics/.forge.resolved.yaml
 
 [SETUP 2/10] Generating TLS certificates (gateway only)
   reusing existing CA certificate
@@ -190,5 +190,5 @@ deployment.apps/pressure-generator scaled
 
 ===============================================================================
 DEMO PASSED  (262.9s)
-Evidence: /home/ubuntu/praxxis/ai-grid/prs/sim-vcr-aigrid/demos/demos/grid-llmd-pool-metrics/evidence/20260807T062340Z/evidence.json
+Evidence: demos/demos/grid-llmd-pool-metrics/evidence/20260807T062340Z/evidence.json
 ===============================================================================
