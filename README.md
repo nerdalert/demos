@@ -42,6 +42,11 @@ Script-driven Grid demos and reference guides for specific topics.
 |------|-------------|
 | [grid-route53-edge-entry](demos/grid-route53-edge-entry/) | Route 53 DNS edge selection with Grid provider routing on existing OpenShift clusters |
 | [grid-metrics-mtls](demos/grid-metrics-mtls/) | Secret-backed TLS and mTLS for InferenceProvider metrics scraping |
+
+## MaaS Labs
+
+| Demo | Description |
+|------|-------------|
 | [maas-ipp](demos/maas-ipp/) | Single-cluster MaaS IPP lab reproducing the stock MaaS Kind datapath with Forge |
 
 ## Layout
